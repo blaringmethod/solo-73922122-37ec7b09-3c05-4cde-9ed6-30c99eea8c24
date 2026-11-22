@@ -53,8 +53,37 @@ CREATE TABLE IF NOT EXISTS counters (
     value INTEGER NOT NULL
 );
 
+-- 复访格：同县某样地在某轮次的复访登记。state 为物化的就绪状态：
+--   ready     所列批次全部到齐且有效（空清单也算，表示查过但没有观测记录）
+--   pending   有批次尚未上报（缺测）
+--   withdrawn 有批次已撤回（缺测）
+-- 只在上报/撤批/登记/更正时按受影响范围重算，矩阵查询只读。
+CREATE TABLE IF NOT EXISTS revisit_cells (
+    county        TEXT NOT NULL,
+    plot          TEXT NOT NULL,
+    round         TEXT NOT NULL,
+    state         TEXT NOT NULL CHECK (state IN ('ready', 'pending', 'withdrawn')),
+    registered_at TEXT NOT NULL,
+    updated_at    TEXT NOT NULL,
+    PRIMARY KEY (county, plot, round)
+);
+
+-- 复访格的批号清单。主键 (county, plot, batch_no) 直接落实
+-- “同一批次可覆盖多个样地，但同县同一样地只归一轮”。
+CREATE TABLE IF NOT EXISTS revisit_cell_batches (
+    county   TEXT NOT NULL,
+    plot     TEXT NOT NULL,
+    round    TEXT NOT NULL,
+    batch_no TEXT NOT NULL,
+    PRIMARY KEY (county, plot, batch_no),
+    FOREIGN KEY (county, plot, round)
+        REFERENCES revisit_cells (county, plot, round) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_obs_combo ON observations (county, species);
 CREATE INDEX IF NOT EXISTS idx_evidence_obs ON evidence_obs (evidence_no);
+CREATE INDEX IF NOT EXISTS idx_revisit_cell_batches_batch
+    ON revisit_cell_batches (batch_no);
 """
 
 
